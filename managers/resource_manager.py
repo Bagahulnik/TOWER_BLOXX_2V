@@ -23,7 +23,14 @@ class ResourceManager:
         for full_path in possible_paths:
             if os.path.exists(full_path):
                 try:
-                    self.images[name] = pygame.image.load(full_path).convert_alpha()
+                    img = pygame.image.load(full_path).convert_alpha()
+                    
+                    # Автомасштабирование фонов
+                    if 'bg' in name and img.get_size() != (SCREEN_WIDTH, SCREEN_HEIGHT):
+                        print(f"Scaling {name} from {img.get_size()} to {SCREEN_WIDTH}x{SCREEN_HEIGHT}")
+                        img = pygame.transform.scale(img, (SCREEN_WIDTH, SCREEN_HEIGHT))
+                    
+                    self.images[name] = img
                     return self.images[name]
                 except Exception as e:
                     print(f"Error loading image {full_path}: {e}")
@@ -60,12 +67,14 @@ class ResourceManager:
             print(f"Created directory: {tower_path}")
             return self.get_fallback_parts()
         
-        # Загружаем части
+        # Загружаем части БЕЗ convert_alpha() - просто load
         for part_name in ['base', 'middle', 'top']:
             part_path = os.path.join(tower_path, f"{part_name}.png")
             if os.path.exists(part_path):
                 try:
-                    parts[part_name] = pygame.image.load(part_path).convert_alpha()
+                    # Загружаем изображение БЕЗ convert_alpha
+                    img = pygame.image.load(part_path)
+                    parts[part_name] = img
                 except Exception as e:
                     print(f"Error loading {part_name} for {tower_id}: {e}")
         
@@ -73,12 +82,11 @@ class ResourceManager:
         if len(parts) < 3:
             full_path = os.path.join(tower_path, "full.png")
             if os.path.exists(full_path):
-                print(f"Using full.png for {tower_id}")
                 try:
-                    full_sprite = pygame.image.load(full_path).convert_alpha()
+                    full_sprite = pygame.image.load(full_path)
                     parts = self.split_pygame_surface(full_sprite)
                 except Exception as e:
-                    print(f"Error splitting full sprite for {tower_id}: {e}")
+                    print(f"Error loading/splitting full sprite for {tower_id}: {e}")
         
         # Если все еще нет частей, используем запасной вариант
         if not parts or len(parts) < 3:
@@ -136,11 +144,7 @@ class ResourceManager:
             surf = pygame.Surface((BLOCK_WIDTH, BLOCK_HEIGHT), pygame.SRCALPHA)
             surf.fill((*color, 255))
             pygame.draw.rect(surf, (255, 255, 255), (2, 2, BLOCK_WIDTH-4, BLOCK_HEIGHT-4), 2)
-            # Добавляем текст для отладки
-            font = pygame.font.Font(None, 20)
-            text = font.render(part[:3].upper(), True, (255, 255, 255))
-            text_rect = text.get_rect(center=(BLOCK_WIDTH//2, BLOCK_HEIGHT//2))
-            surf.blit(text, text_rect)
+            # НЕ добавляем текст чтобы избежать ошибки с font not initialized
             fallback[part] = surf
         
         return fallback
@@ -163,7 +167,9 @@ class ResourceManager:
             return parts.get('middle', parts.get('top'))
     
     def get_image(self, name):
+        """Получить изображение по имени"""
         return self.images.get(name)
     
     def get_sound(self, name):
+        """Получить звук по имени"""
         return self.sounds.get(name)

@@ -33,12 +33,11 @@ class AudioManager:
         if not self.music_loaded:
             print("⚠ Background music not found, continuing without music")
         
-        # Загружаем звуковые эффекты
+        # Загружаем звуковые эффекты (БЕЗ 'over')
         sound_files = {
             'build': 'build.wav',
             'gold': 'gold.wav',
-            'over': 'over.wav',  # Попробуем over.wav
-            'overmusic': 'overmusic.wav',  # И overmusic.wav
+            'overmusic': 'overmusic.wav',
             'fall': 'fall.wav'
         }
         
@@ -80,3 +79,15 @@ class AudioManager:
                 sound.play()
             except Exception as e:
                 print(f"Failed to play sound '{name}': {e}")
+    
+    def set_music_volume(self, volume):
+        """Установить громкость музыки (0.0 - 1.0)"""
+        volume = max(0.0, min(1.0, volume))
+        pygame.mixer.music.set_volume(volume)
+    
+    def set_sound_volume(self, volume):
+        """Установить громкость звуков (0.0 - 1.0)"""
+        volume = max(0.0, min(1.0, volume))
+        for sound in self.resource_manager.sounds.values():
+            if sound:
+                sound.set_volume(volume)

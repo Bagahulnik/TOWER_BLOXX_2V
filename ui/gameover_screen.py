@@ -8,9 +8,10 @@ class GameOverScreen:
         self.mini_font = mini_font
         self.background = background
         self.blink_event = pygame.USEREVENT + 1
-        pygame.time.set_timer(self.blink_event, 800)
         
     def show(self, screen, score):
+        pygame.time.set_timer(self.blink_event, 800)
+        
         over_text = self.over_font.render("GAME OVER", True, (0, 0, 0))
         high_score = self.score_font.render(f"SCORE: {score}", True, (0, 0, 0))
         button = self.mini_font.render("PRESS ANY BUTTON TO RESTART", True, (0, 0, 0))
@@ -23,10 +24,15 @@ class GameOverScreen:
         index = 1
         waiting = True
         
+        clock = pygame.time.Clock()
+        
         while waiting:
+            clock.tick(60)
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
+                    return
                 if event.type == pygame.KEYUP:
                     waiting = False
                 if event.type == self.blink_event:
