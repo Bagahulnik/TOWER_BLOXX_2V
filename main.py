@@ -3,6 +3,7 @@ import pygame
 import os
 import sys
 
+
 def check_and_prepare_resources():
     """Проверка и подготовка всех ресурсов перед запуском игры"""
     print("\n" + "=" * 70)
@@ -39,49 +40,9 @@ def check_and_prepare_resources():
             os.makedirs(folder, exist_ok=True)
             print(f"  Created: {folder}")
     
-    # 2. Проверка наличия исходных спрайтов башен
-    print("\n[2/4] Checking tower source sprites...")
+    # 2. Проверка наличия частей башен
+    print("\n[2/4] Checking tower parts...")
     towers_path = "assets/towers"
-    towers_found = 0
-    towers_missing = []
-    
-    for i in range(1, 9):
-        tower_id = f"tower_{i}"
-        tower_dir = os.path.join(towers_path, tower_id)
-        
-        if not os.path.exists(tower_dir):
-            os.makedirs(tower_dir, exist_ok=True)
-            towers_missing.append(tower_id)
-            continue
-        
-        source_file = os.path.join(tower_dir, f"tower_{i}.png")
-        if os.path.exists(source_file):
-            towers_found += 1
-            print(f"  ✓ {tower_id}: tower_{i}.png found")
-        else:
-            towers_missing.append(tower_id)
-            print(f"  ✗ {tower_id}: tower_{i}.png not found")
-    
-    print(f"\nTowers found: {towers_found}/8")
-    
-    if towers_missing:
-        print(f"⚠ Missing towers: {', '.join(towers_missing)}")
-        print("  These towers will use fallback sprites")
-    
-    # 3. Разделение спрайтов башен
-    print("\n[3/4] Splitting tower sprites...")
-    from managers.sprite_splitter import SpriteSplitter
-    
-    splitter = SpriteSplitter("assets/towers", 64)
-    processed = splitter.split_all_towers()
-    
-    if processed > 0:
-        print(f"✓ Processed {processed} towers")
-    else:
-        print("ℹ All tower parts already exist or no source files found")
-    
-    # 4. Проверка наличия разделенных частей
-    print("\n[4/4] Verifying tower parts...")
     complete_towers = 0
     
     for i in range(1, 9):
@@ -89,43 +50,84 @@ def check_and_prepare_resources():
         tower_dir = os.path.join(towers_path, tower_id)
         
         if not os.path.exists(tower_dir):
+            os.makedirs(tower_dir, exist_ok=True)
+            print(f"  ✗ {tower_id}: Folder created, missing parts")
             continue
         
-        parts_exist = all([
-            os.path.exists(os.path.join(tower_dir, f"{part}.png"))
-            for part in ['top', 'middle', 'base']
-        ])
+        # Проверяем новые файлы: bot + mid_0/1/2/3
+        required_parts = [
+            f"tower_{i}_bot.png",
+            f"tower_{i}_mid_0.png",
+            f"tower_{i}_mid_1.png",
+            f"tower_{i}_mid_2.png",
+            f"tower_{i}_mid_3.png"
+        ]
         
-        if parts_exist:
+        missing_parts = []
+        for part in required_parts:
+            if not os.path.exists(os.path.join(tower_dir, part)):
+                missing_parts.append(part)
+        
+        if not missing_parts:
             complete_towers += 1
-            print(f"  ✓ {tower_id}: All parts ready")
+            print(f"  ✓ {tower_id}: All 5 parts found")
         else:
-            missing_parts = [
-                part for part in ['top', 'middle', 'base']
-                if not os.path.exists(os.path.join(tower_dir, f"{part}.png"))
-            ]
-            print(f"  ⚠ {tower_id}: Missing parts: {', '.join(missing_parts)}")
+            print(f"  ⚠ {tower_id}: Missing {len(missing_parts)} parts")
     
     print(f"\nComplete towers: {complete_towers}/8")
+    
+    # 3. Проверка фонов
+    print("\n[3/4] Checking backgrounds...")
+    backgrounds_path = "assets/backgrounds"
+    backgrounds_found = 0
+    
+    for i in range(1, 4):  # bg1, bg2, bg3
+        bg_file = os.path.join(backgrounds_path, f"bg{i}.png")
+        if os.path.exists(bg_file):
+            backgrounds_found += 1
+            print(f"  ✓ bg{i}.png found")
+        else:
+            print(f"  ✗ bg{i}.png not found")
+    
+    print(f"\nBackgrounds found: {backgrounds_found}/3")
+    
+    # 4. Проверка аудио
+    print("\n[4/4] Checking audio files...")
+    audio_path = "assets/audio"
+    audio_files = ["music.mp3", "build.wav", "fall.wav", "gold.wav"]
+    audio_found = 0
+    
+    for audio_file in audio_files:
+        if os.path.exists(os.path.join(audio_path, audio_file)):
+            audio_found += 1
+            print(f"  ✓ {audio_file} found")
+        else:
+            print(f"  ⚠ {audio_file} not found")
+    
+    print(f"\nAudio files found: {audio_found}/{len(audio_files)}")
     
     # Финальный статус
     print("\n" + "=" * 70)
     if complete_towers >= 1:
-        print("✓ RESOURCE CHECK COMPLETE - STARTING GAME")
+        print(f"✓ RESOURCE CHECK COMPLETE - {complete_towers}/8 TOWERS READY")
         print("=" * 70 + "\n")
         return True
     else:
         print("✗ NO VALID TOWERS FOUND")
         print("=" * 70)
-        print("\nPlease add tower sprites to:")
-        print("  assets/towers/tower_1/tower_1.png")
-        print("  assets/towers/tower_2/tower_2.png")
+        print("\nPlease add tower parts to:")
+        print("  assets/towers/tower_1/tower_1_bot.png")
+        print("  assets/towers/tower_1/tower_1_mid_0.png")
+        print("  assets/towers/tower_1/tower_1_mid_1.png")
+        print("  assets/towers/tower_1/tower_1_mid_2.png")
+        print("  assets/towers/tower_1/tower_1_mid_3.png")
         print("  ... etc")
         print("\nGame will use fallback sprites.")
         print("=" * 70 + "\n")
         
         response = input("Continue anyway? (y/n): ").lower()
         return response == 'y'
+
 
 if __name__ == "__main__":
     try:

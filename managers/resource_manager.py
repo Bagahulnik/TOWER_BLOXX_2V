@@ -1,175 +1,90 @@
-"""Управление загрузкой ресурсов с автоматическим разделением спрайтов"""
+"""Менеджер ресурсов под Tower/Block"""
 import pygame
 import os
-from config import *
-from managers.sprite_splitter import SpriteSplitter
+import itertools
+from config import TOWER_MID_PARTS_COUNT
 
 class ResourceManager:
     def __init__(self):
         self.images = {}
-        self.sounds = {}
         self.tower_sprites = {}
-        self.sprite_splitter = SpriteSplitter(TOWERS_PATH, BLOCK_WIDTH)
-        
+        self.sounds = {}
+        self.next_block_cycle = {}
+
     def load_image(self, name, path):
-        """Загрузка изображения"""
-        # Пробуем разные варианты путей
-        possible_paths = [
-            os.path.join(ASSETS_PATH, path),
-            path,
-            os.path.join(ASSETS_PATH, os.path.basename(path))
-        ]
-        
-        for full_path in possible_paths:
-            if os.path.exists(full_path):
-                try:
-                    img = pygame.image.load(full_path).convert_alpha()
-                    
-                    # Автомасштабирование фонов
-                    if 'bg' in name and img.get_size() != (SCREEN_WIDTH, SCREEN_HEIGHT):
-                        print(f"Scaling {name} from {img.get_size()} to {SCREEN_WIDTH}x{SCREEN_HEIGHT}")
-                        img = pygame.transform.scale(img, (SCREEN_WIDTH, SCREEN_HEIGHT))
-                    
-                    self.images[name] = img
-                    return self.images[name]
-                except Exception as e:
-                    print(f"Error loading image {full_path}: {e}")
-        
-        print(f"Warning: Image '{name}' not found at: {path}")
-        return None
-    
-    def load_sound(self, name, path):
-        """Загрузка звука (принимает полный путь)"""
         try:
-            self.sounds[name] = pygame.mixer.Sound(path)
-            return self.sounds[name]
+            full_path = os.path.join("assets", path)
+            img = pygame.image.load(full_path).convert_alpha()
+            self.images[name] = img
+            return img
         except Exception as e:
-            print(f"Error loading sound '{name}' from {path}: {e}")
+            print(f"Error loading image {path}: {e}")
             return None
-    
-    def prepare_tower_sprites(self):
-        """
-        Подготовка спрайтов башен
-        Автоматически разделяет полные спрайты на части если нужно
-        """
-        print("\n=== Preparing tower sprites ===")
-        self.sprite_splitter.split_all_towers()
-        print("=== Tower sprites ready ===\n")
-    
-    def load_tower_parts(self, tower_id):
-        """Загрузка частей башни"""
-        tower_path = os.path.join(TOWERS_PATH, tower_id)
-        parts = {}
-        
-        # Проверяем существование папки
-        if not os.path.exists(tower_path):
-            os.makedirs(tower_path, exist_ok=True)
-            print(f"Created directory: {tower_path}")
-            return self.get_fallback_parts()
-        
-        # Загружаем части БЕЗ convert_alpha() - просто load
-        for part_name in ['base', 'middle', 'top']:
-            part_path = os.path.join(tower_path, f"{part_name}.png")
-            if os.path.exists(part_path):
-                try:
-                    # Загружаем изображение БЕЗ convert_alpha
-                    img = pygame.image.load(part_path)
-                    parts[part_name] = img
-                except Exception as e:
-                    print(f"Error loading {part_name} for {tower_id}: {e}")
-        
-        # Если нет всех частей, пробуем загрузить full.png и разделить
-        if len(parts) < 3:
-            full_path = os.path.join(tower_path, "full.png")
-            if os.path.exists(full_path):
-                try:
-                    full_sprite = pygame.image.load(full_path)
-                    parts = self.split_pygame_surface(full_sprite)
-                except Exception as e:
-                    print(f"Error loading/splitting full sprite for {tower_id}: {e}")
-        
-        # Если все еще нет частей, используем запасной вариант
-        if not parts or len(parts) < 3:
-            parts = self.get_fallback_parts()
-        
-        self.tower_sprites[tower_id] = parts
-        return parts
-    
-    def split_pygame_surface(self, surface):
-        """Разделение pygame surface на части"""
-        width = surface.get_width()
-        height = surface.get_height()
-        block_height = BLOCK_HEIGHT
-        
-        parts = {}
-        
-        try:
-            # Верхний блок
-            top = pygame.Surface((width, block_height), pygame.SRCALPHA)
-            top.blit(surface, (0, 0), (0, 0, width, block_height))
-            parts['top'] = top
-            
-            # Средний блок
-            if height > block_height * 2:
-                middle = pygame.Surface((width, block_height), pygame.SRCALPHA)
-                middle.blit(surface, (0, 0), (0, block_height, width, block_height))
-                parts['middle'] = middle
-            else:
-                parts['middle'] = parts['top'].copy()
-            
-            # Нижний блок
-            if height > block_height:
-                base_y = height - block_height
-                base = pygame.Surface((width, block_height), pygame.SRCALPHA)
-                base.blit(surface, (0, 0), (0, base_y, width, block_height))
-                parts['base'] = base
-            else:
-                parts['base'] = parts['top'].copy()
-        except Exception as e:
-            print(f"Error in split_pygame_surface: {e}")
-            return self.get_fallback_parts()
-        
-        return parts
-    
-    def get_fallback_parts(self):
-        """Создание запасных блоков если нет спрайтов"""
-        fallback = {}
-        colors = {
-            'top': (200, 100, 100),
-            'middle': (100, 150, 200),
-            'base': (150, 150, 100)
-        }
-        
-        for part, color in colors.items():
-            surf = pygame.Surface((BLOCK_WIDTH, BLOCK_HEIGHT), pygame.SRCALPHA)
-            surf.fill((*color, 255))
-            pygame.draw.rect(surf, (255, 255, 255), (2, 2, BLOCK_WIDTH-4, BLOCK_HEIGHT-4), 2)
-            # НЕ добавляем текст чтобы избежать ошибки с font not initialized
-            fallback[part] = surf
-        
-        return fallback
-    
-    def get_tower_part(self, tower_id, part_name, floor_num):
-        """Получить часть башни в зависимости от этажа"""
-        if tower_id not in self.tower_sprites:
-            self.load_tower_parts(tower_id)
-        
-        parts = self.tower_sprites.get(tower_id)
-        if not parts:
-            parts = self.get_fallback_parts()
-        
-        # Логика выбора части
-        if floor_num == 0:
-            return parts.get('base', parts.get('middle'))
-        elif part_name == 'top':
-            return parts.get('top', parts.get('middle'))
-        else:
-            return parts.get('middle', parts.get('top'))
-    
+
     def get_image(self, name):
-        """Получить изображение по имени"""
         return self.images.get(name)
-    
+
+    def load_sound(self, name, path):
+        try:
+            full_path = os.path.join("assets", path)
+            snd = pygame.mixer.Sound(full_path)
+            self.sounds[name] = snd
+            return snd
+        except Exception as e:
+            print(f"Error loading sound {path}: {e}")
+            return None
+
     def get_sound(self, name):
-        """Получить звук по имени"""
         return self.sounds.get(name)
+
+    def load_tower_parts(self, skin_id):
+        if skin_id in self.tower_sprites:
+            return self.tower_sprites[skin_id]
+
+        parts = {"base": None, "middle_list": []}
+        tower_num = skin_id.split("_")[1]
+        folder = f"towers/tower_{tower_num}"
+
+        base_path = os.path.join(folder, f"tower_{tower_num}_bot.png")
+        base_img = self.load_image(f"{skin_id}_base", base_path)
+        if base_img:
+            parts["base"] = base_img
+            print(f"Loaded: {base_path}")
+
+        for i in range(TOWER_MID_PARTS_COUNT):
+            mid_path = os.path.join(folder, f"tower_{tower_num}_mid_{i}.png")
+            mid_img = self.load_image(f"{skin_id}_mid_{i}", mid_path)
+            if mid_img:
+                parts["middle_list"].append(mid_img)
+                print(f"Loaded: {mid_path}")
+
+        self.tower_sprites[skin_id] = parts
+        return parts
+
+    def get_next_block_sprite(self, skin_id):
+        if skin_id not in self.next_block_cycle:
+            parts = self.load_tower_parts(skin_id)
+            base = parts.get("base")
+            mids = parts.get("middle_list", [])
+            self.next_block_cycle[skin_id] = {
+                'is_first': True,
+                'base': base,
+                'mids': mids,
+                'cycle': itertools.cycle(mids) if mids else None
+            }
+        
+        cycle_data = self.next_block_cycle[skin_id]
+        
+        if cycle_data['is_first']:
+            cycle_data['is_first'] = False
+            return cycle_data['base']
+        
+        if cycle_data['cycle']:
+            return next(cycle_data['cycle'])
+        
+        return None
+
+    def reset_block_cycle(self, skin_id):
+        """Полный сброс очереди"""
+        if skin_id in self.next_block_cycle:
+            del self.next_block_cycle[skin_id]

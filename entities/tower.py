@@ -1,9 +1,10 @@
-"""Класс башни с поддержкой разных скинов"""
+"""Башня: первый этаж bot, остальные — тот же спрайт, что висел на верёвке"""
 import pygame
 from config import BLOCK_HEIGHT, BLOCK_WIDTH
 
+
 class Tower(pygame.sprite.Sprite):
-    def __init__(self, resource_manager, skin_id='tower_1'):
+    def __init__(self, resource_manager, skin_id="tower_1"):
         pygame.sprite.Sprite.__init__(self)
         self.resource_manager = resource_manager
         self.skin_id = skin_id
@@ -22,47 +23,31 @@ class Tower(pygame.sprite.Sprite):
         self.golden = False
         self.redraw = False
         self.display_status = True
-        
-        # Загружаем части башни
+
+        self.floors = []  # [{'x': ..., 'sprite': ...}]
+
         self.load_parts()
 
     def load_parts(self):
-        """Загрузка частей башни"""
         self.parts = self.resource_manager.load_tower_parts(self.skin_id)
-        # Устанавливаем основное изображение
-        self.image = self.parts.get('middle')
-        self.imageMAIN = self.parts.get('middle')
-        self.image2 = self.parts.get('middle')  # Золотой вариант (пока тот же)
 
     def change_skin(self, skin_id):
-        """Смена скина башни"""
         self.skin_id = skin_id
         self.load_parts()
 
-    def get_block_sprite(self, floor_num):
-        """Получить спрайт блока для данного этажа"""
-        if self.golden:
-            # Для золотого блока можно использовать другой вариант
-            # Пока используем обычный
-            pass
-        
-        if floor_num == 0:
-            return self.parts.get('base', self.parts.get('middle'))
-        elif floor_num == self.size - 1:
-            return self.parts.get('top', self.parts.get('middle'))
-        else:
-            return self.parts.get('middle')
-
-    def build(self, block_x):
-        """Постройка нового этажа"""
+    def build(self, block_x, block_sprite):
+        """Строим этаж, используя спрайт упавшего блока"""
         self.size += 1
         self.onscreen += 1
 
         if self.size == 1:
             self.xbase = block_x
-            self.xlist.append(self.xbase)
+            sprite = self.parts.get("base", block_sprite)
         else:
-            self.xlist.append(block_x)
+            sprite = block_sprite
+
+        self.xlist.append(block_x)
+        self.floors.append({"x": block_x, "sprite": sprite})
 
         if self.size <= 5:
             self.height = self.size * BLOCK_HEIGHT
@@ -72,19 +57,20 @@ class Tower(pygame.sprite.Sprite):
             self.y -= BLOCK_HEIGHT
 
     def draw(self):
-        """Отрисовка башни с разными частями"""
         if self.size >= 1:
             max_height = self.onscreen * BLOCK_HEIGHT
             surf = pygame.Surface((800, max_height), pygame.SRCALPHA)
             surf.convert_alpha()
-            
-            buildlist = self.xlist[-self.onscreen:] if self.redraw else self.xlist
-            
-            for i in range(len(buildlist)):
-                floor_sprite = self.get_block_sprite(i)
+
+            floors_to_draw = (
+                self.floors[-self.onscreen :] if self.redraw else self.floors
+            )
+
+            for i, floor in enumerate(floors_to_draw):
+                floor_sprite = floor["sprite"]
                 if floor_sprite:
-                    y_pos = self.onscreen * BLOCK_HEIGHT - BLOCK_HEIGHT * (i + 1)
-                    surf.blit(floor_sprite, (buildlist[i], y_pos))
+                    y_pos = max_height - BLOCK_HEIGHT * (i + 1)
+                    surf.blit(floor_sprite, (floor["x"], y_pos))
         else:
             surf = pygame.Surface((0, 0))
 
@@ -101,7 +87,6 @@ class Tower(pygame.sprite.Sprite):
         return self.golden
 
     def get_width(self):
-        """Получить ширину башни"""
         width = BLOCK_WIDTH
         if self.size == 0 or self.size == -1:
             return width
@@ -112,7 +97,6 @@ class Tower(pygame.sprite.Sprite):
         return width
 
     def wobble(self):
-        """Качание башни"""
         width = self.get_width()
         if ((width > 100 or width < -100) and self.size >= 5) or self.size >= 20:
             self.wobbling = True
@@ -126,12 +110,10 @@ class Tower(pygame.sprite.Sprite):
             self.speed = 0.4
 
     def display(self, screen):
-        """Отображение башни"""
         surf = self.draw()
         screen.blit(surf, (self.x + self.change, self.y))
 
     def scroll(self):
-        """Прокрутка башни"""
         if self.y <= 440:
             self.y += 5
             self.scrolling = True
@@ -141,21 +123,18 @@ class Tower(pygame.sprite.Sprite):
             self.onscreen = 3
 
     def reset(self):
-        """Сброс башни"""
         self.redraw = True
         if self.onscreen >= 7:
             self.onscreen = 3
             self.y = 440
 
     def unbuild(self, block):
-        """Разрушение верхнего этажа"""
         self.display_status = False
         if self.y > block.y:
             block.y = self.y
             self.size -= 1
 
     def collapse(self, direction):
-        """Обрушение башни"""
         self.y += 5
         if direction == "l":
             self.x -= 5

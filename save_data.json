@@ -1,14 +1,13 @@
 {
-  "coins": 469,
-  "high_score": 43,
+  "coins": 194,
+  "high_score": 21,
   "unlocked_skins": [
-    "tower_1",
-    "tower_2"
+    "tower_1"
   ],
   "selected_skin": "tower_1",
   "settings": {
-    "music_volume": 0.35333333333333333,
-    "sound_volume": 0.29333333333333333,
-    "selected_background": 3
+    "music_volume": 0.5,
+    "sound_volume": 0.7,
+    "selected_background": 0
   }
 }
